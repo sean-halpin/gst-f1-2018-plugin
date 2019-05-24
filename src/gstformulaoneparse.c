@@ -21,6 +21,7 @@
 
 GST_DEBUG_CATEGORY_STATIC (gst_formula_one_parse_debug);
 #define GST_CAT_DEFAULT gst_formula_one_parse_debug
+#define VERSION 1
 
 /* Filter signals and args */
 enum
@@ -83,8 +84,8 @@ gst_formula_one_parse_class_init (GstFormulaOneParseClass * klass)
 
   gst_element_class_set_details_simple(gstelement_class,
     "FormulaOneParse",
-    "FIXME:Generic",
-    "FIXME:Generic Template Element",
+    "Parser",
+    "Parses F1 2018 Telemetry Data",
     "Sean <<user@hostname.org>>");
 
   gst_element_class_add_pad_template (gstelement_class,
