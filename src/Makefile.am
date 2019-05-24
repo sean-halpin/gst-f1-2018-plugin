@@ -25,4 +25,4 @@ libformulaoneparse_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS)
 libformulaoneparse_la_LIBTOOLFLAGS = --tag=disable-static
 
 # headers we need but don't want installed
-noinst_HEADERS = gstplugin.h
+# noinst_HEADERS = gstplugin.h
