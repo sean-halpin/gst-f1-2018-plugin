@@ -21,7 +21,6 @@
 
 GST_DEBUG_CATEGORY_STATIC (gst_formula_one_parse_debug);
 #define GST_CAT_DEFAULT gst_formula_one_parse_debug
-#define VERSION 1
 
 /* Filter signals and args */
 enum
@@ -237,7 +236,7 @@ GST_PLUGIN_DEFINE (
     formulaoneparse,
     "Template formulaoneparse",
     formulaoneparse_init,
-    VERSION,
+    0,
     "LGPL",
     "GStreamer",
     "http://gstreamer.net/"
