@@ -224,7 +224,7 @@ formulaoneparse_init (GstPlugin * formulaoneparse)
  * compile this code. GST_PLUGIN_DEFINE needs PACKAGE to be defined.
  */
 #ifndef PACKAGE
-#define PACKAGE "myfirstformulaoneparse"
+#define PACKAGE "formulaoneparsepackage"
 #endif
 
 /* gstreamer looks for this structure to register formulaoneparses
