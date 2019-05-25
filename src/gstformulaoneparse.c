@@ -21,17 +21,6 @@
 
 #include "gstformulaoneparse.h"
 
-struct PacketHeader
-{
-  u_int16_t m_packetFormat;    // 2018
-  u_int8_t m_packetVersion;    // Version of this packet type, all start from 1
-  u_int8_t m_packetId;         // Identifier for the packet type, see below
-  u_int64_t m_sessionUID;      // Unique identifier for the session
-  float m_sessionTime;         // Session timestamp
-  u_int32_t m_frameIdentifier; // Identifier for the frame the data was retrieved on
-  u_int8_t m_playerCarIndex;   // Index of player's car in the array
-} typedef PacketHeader;
-
 GST_DEBUG_CATEGORY_STATIC(gst_formula_one_parse_debug);
 #define GST_CAT_DEFAULT gst_formula_one_parse_debug
 
