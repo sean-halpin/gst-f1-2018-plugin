@@ -236,7 +236,7 @@ GST_PLUGIN_DEFINE (
     formulaoneparse,
     "Template formulaoneparse",
     formulaoneparse_init,
-    0,
+    "0.0.1",
     "LGPL",
     "GStreamer",
     "http://gstreamer.net/"
