@@ -36,6 +36,10 @@ struct _GstFormulaOneParseClass
 
 GType gst_formula_one_parse_get_type(void);
 
+//Info from: https://forums.codemasters.com/topic/30601-f1-2018-udp-specification/
+
+//The UDP data is packed
+#pragma pack(push,1)
 struct PacketHeader
 {
   u_int16_t m_packetFormat;    // 2018
@@ -322,6 +326,7 @@ struct PacketCarStatusData
   PacketHeader m_header; // Header
   CarStatusData m_carStatusData[20];
 } typedef PacketCarStatusData;
+#pragma pack(pop)
 
 G_END_DECLS
 

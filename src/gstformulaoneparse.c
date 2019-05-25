@@ -193,10 +193,8 @@ gst_formula_one_parse_chain(GstPad *pad, GstObject *parent, GstBuffer *buf)
   time_t timer;
   char buffer[26];
   struct tm *tm_info;
-
   time(&timer);
   tm_info = localtime(&timer);
-
   strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", tm_info);
 
   GstFormulaOneParse *filter;
@@ -205,21 +203,30 @@ gst_formula_one_parse_chain(GstPad *pad, GstObject *parent, GstBuffer *buf)
 
   if (filter->silent == FALSE)
   {
-    g_print("F1 Telemetry Recieved - %s\n", buffer);
+    // g_print("F1 Telemetry Recieved - %s\n", buffer);
     GstMapInfo map;
     gst_buffer_map(buf, &map, GST_MAP_READ);
-    PacketHeader *ph = (PacketHeader*)map.data;
-    g_print("Packet Format - %d\n", ph->m_packetFormat);
-    g_print("Packet Version - %d\n", ph->m_packetVersion);
-    g_print("Packet Id - %d\n", ph->m_packetId);
-    g_print("Player Car Index - %d\n", ph->m_playerCarIndex);
-    g_print("Session Time - %d\n", ph->m_sessionTime);
-    g_print("Session UID - %d\n", ph->m_sessionUID);
-    g_print("Frame ID - %d\n", ph->m_frameIdentifier);
+    PacketHeader *ph = (PacketHeader *)map.data;
+    // g_print("Packet Format - %d\n", ph->m_packetFormat);
+    // g_print("Packet Version - %d\n", ph->m_packetVersion);
+    // g_print("Packet Id - %d\n", ph->m_packetId);
+    // g_print("Player Car Index - %d\n", ph->m_playerCarIndex);
+    // g_print("Session Time - %d\n", ph->m_sessionTime);
+    // g_print("Session UID - %d\n", ph->m_sessionUID);
+    // g_print("Frame ID - %d\n", ph->m_frameIdentifier);
+    if (ph->m_packetId == 6)
+    {
+      PacketCarTelemetryData *carTelemetry = (PacketCarTelemetryData *)map.data;
+      // g_print("PacketCarTelemetryData Size - %u\n", sizeof(PacketCarTelemetryData));
+      g_print("Car Index - %u\n", ph->m_playerCarIndex);
+      CarTelemetryData playerCar = carTelemetry->m_carTelemetryData[ph->m_playerCarIndex];
+      g_print("Speed - %u\n", playerCar.m_speed);
+      g_print("Gear - %i\n", playerCar.m_gear);
+      g_print("Engine RPM - %u\n", playerCar.m_engineRPM);
+    }
 
     gst_buffer_unmap(buf, &map);
   }
-
   /* just push out the incoming buffer without touching it */
   return gst_pad_push(filter->srcpad, buf);
 }
