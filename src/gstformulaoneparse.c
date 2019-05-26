@@ -215,34 +215,35 @@ gst_formula_one_parse_chain(GstPad *pad, GstObject *parent, GstBuffer *buf)
       g_print("Speed - %u\n", playerCar.m_speed);
       g_print("Gear - %i\n", playerCar.m_gear);
       g_print("Engine RPM - %u\n", playerCar.m_engineRPM);
-    }
 
-    size = 300 * 300 * 3;
-    video_buffer = gst_buffer_new();
-    gst_video_info_from_caps(&video_info, gst_caps_from_string(SRC_CAPS));
-    memory = gst_allocator_alloc(NULL, size, NULL);
-    gst_buffer_insert_memory(video_buffer, -1, memory);
-    // set RGB pixels to black one at a time
-    if (gst_video_frame_map(&vframe, &video_info, video_buffer, GST_MAP_WRITE))
-    {
-      guint8 *pixels = GST_VIDEO_FRAME_PLANE_DATA(&vframe, 0);
-      guint stride = GST_VIDEO_FRAME_PLANE_STRIDE(&vframe, 0);
-      guint pixel_stride = GST_VIDEO_FRAME_COMP_PSTRIDE(&vframe, 0);
-      int h, w, height, width;
-      for (h = 0; h < height; ++h)
+      size = 300 * 300 * 3;
+      video_buffer = gst_buffer_new();
+      gst_video_info_from_caps(&video_info, gst_caps_from_string(SRC_CAPS));
+      memory = gst_allocator_alloc(NULL, size, NULL);
+      gst_buffer_insert_memory(video_buffer, -1, memory);
+      // set RGB pixels to black one at a time
+      if (gst_video_frame_map(&vframe, &video_info, video_buffer, GST_MAP_WRITE))
       {
-        for (w = 0; w < width; ++w)
+        guint8 *pixels = GST_VIDEO_FRAME_PLANE_DATA(&vframe, 0);
+        guint stride = GST_VIDEO_FRAME_PLANE_STRIDE(&vframe, 0);
+        guint pixel_stride = GST_VIDEO_FRAME_COMP_PSTRIDE(&vframe, 0);
+        int h, w, height = 300, width = 300;
+        for (h = 0; h < height; ++h)
         {
-          guint8 *pixel = pixels + h * stride + w * pixel_stride;
-          memset(pixel, 0, pixel_stride);
+          for (w = 0; w < width; ++w)
+          {
+            guint8 *pixel = pixels + h * stride + w * pixel_stride;
+            memset(pixel, 0, pixel_stride);
+          }
         }
+        gst_video_frame_unmap(&vframe);
       }
-      gst_video_frame_unmap(&vframe);
+      gst_buffer_unmap(buf, &map);
+      /* push out the buffer */
+      return gst_pad_push(filter->srcpad, video_buffer);
     }
-    gst_buffer_unmap(buf, &map);
   }
-  /* push out the buffer */
-  return gst_pad_push(filter->srcpad, video_buffer);
+  return GST_FLOW_OK;
 }
 
 /* entry point to initialize the plug-in
