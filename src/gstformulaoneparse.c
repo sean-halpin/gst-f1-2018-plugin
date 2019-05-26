@@ -23,6 +23,7 @@
 
 GST_DEBUG_CATEGORY_STATIC(gst_formula_one_parse_debug);
 #define GST_CAT_DEFAULT gst_formula_one_parse_debug
+#define SRC_CAPS "video/x-raw, format=(string) RGB, width=(int) 300, height=(int) 300"
 
 /* Filter signals and args */
 enum
@@ -49,7 +50,7 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE("sink",
 static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE("src",
                                                                   GST_PAD_SRC,
                                                                   GST_PAD_ALWAYS,
-                                                                  GST_STATIC_CAPS("ANY"));
+                                                                  GST_STATIC_CAPS(SRC_CAPS));
 
 #define gst_formula_one_parse_parent_class parent_class
 G_DEFINE_TYPE(GstFormulaOneParse, gst_formula_one_parse, GST_TYPE_ELEMENT);
@@ -190,30 +191,21 @@ gst_formula_one_parse_sink_event(GstPad *pad, GstObject *parent, GstEvent *event
 static GstFlowReturn
 gst_formula_one_parse_chain(GstPad *pad, GstObject *parent, GstBuffer *buf)
 {
-  time_t timer;
-  char buffer[26];
-  struct tm *tm_info;
-  time(&timer);
-  tm_info = localtime(&timer);
-  strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", tm_info);
+  GstVideoFrame vframe;
+  GstVideoInfo video_info;
+  GstBuffer *video_buffer;
+  GstMemory *memory;
+  gint size;
 
   GstFormulaOneParse *filter;
-
   filter = GST_FORMULAONEPARSE(parent);
 
   if (filter->silent == FALSE)
   {
-    // g_print("F1 Telemetry Recieved - %s\n", buffer);
     GstMapInfo map;
     gst_buffer_map(buf, &map, GST_MAP_READ);
     PacketHeader *ph = (PacketHeader *)map.data;
-    // g_print("Packet Format - %d\n", ph->m_packetFormat);
-    // g_print("Packet Version - %d\n", ph->m_packetVersion);
-    // g_print("Packet Id - %d\n", ph->m_packetId);
-    // g_print("Player Car Index - %d\n", ph->m_playerCarIndex);
-    // g_print("Session Time - %d\n", ph->m_sessionTime);
-    // g_print("Session UID - %d\n", ph->m_sessionUID);
-    // g_print("Frame ID - %d\n", ph->m_frameIdentifier);
+    g_print("UDP Packet Identifier - %d\n", ph->m_packetId);
     if (ph->m_packetId == 6)
     {
       PacketCarTelemetryData *carTelemetry = (PacketCarTelemetryData *)map.data;
@@ -225,10 +217,32 @@ gst_formula_one_parse_chain(GstPad *pad, GstObject *parent, GstBuffer *buf)
       g_print("Engine RPM - %u\n", playerCar.m_engineRPM);
     }
 
+    size = 300 * 300 * 3;
+    video_buffer = gst_buffer_new();
+    gst_video_info_from_caps(&video_info, gst_caps_from_string(SRC_CAPS));
+    memory = gst_allocator_alloc(NULL, size, NULL);
+    gst_buffer_insert_memory(video_buffer, -1, memory);
+    // set RGB pixels to black one at a time
+    if (gst_video_frame_map(&vframe, &video_info, video_buffer, GST_MAP_WRITE))
+    {
+      guint8 *pixels = GST_VIDEO_FRAME_PLANE_DATA(&vframe, 0);
+      guint stride = GST_VIDEO_FRAME_PLANE_STRIDE(&vframe, 0);
+      guint pixel_stride = GST_VIDEO_FRAME_COMP_PSTRIDE(&vframe, 0);
+      int h, w, height, width;
+      for (h = 0; h < height; ++h)
+      {
+        for (w = 0; w < width; ++w)
+        {
+          guint8 *pixel = pixels + h * stride + w * pixel_stride;
+          memset(pixel, 0, pixel_stride);
+        }
+      }
+      gst_video_frame_unmap(&vframe);
+    }
     gst_buffer_unmap(buf, &map);
   }
-  /* just push out the incoming buffer without touching it */
-  return gst_pad_push(filter->srcpad, buf);
+  /* push out the buffer */
+  return gst_pad_push(filter->srcpad, video_buffer);
 }
 
 /* entry point to initialize the plug-in

@@ -2,6 +2,9 @@
 #define __GST_FORMULAONEPARSE_H__
 
 #include <gst/gst.h>
+#include <gst/video/video.h>
+#include <gst/video/video-frame.h>
+#include <gst/video/gstvideofilter.h>
 
 G_BEGIN_DECLS
 
@@ -23,9 +26,7 @@ typedef struct _GstFormulaOneParseClass GstFormulaOneParseClass;
 struct _GstFormulaOneParse
 {
   GstElement element;
-
-  GstPad *sinkpad, *srcpad;
-
+  GstPad *sinkpad, *srcpad; 
   gboolean silent;
 };
 
