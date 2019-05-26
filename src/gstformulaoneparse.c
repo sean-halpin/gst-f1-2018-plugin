@@ -23,7 +23,8 @@
 
 GST_DEBUG_CATEGORY_STATIC(gst_formula_one_parse_debug);
 #define GST_CAT_DEFAULT gst_formula_one_parse_debug
-#define SRC_CAPS "video/x-raw, format=(string) RGB, width=(int) 300, height=(int) 300"
+#define SRC_CAPS "video/x-raw, framerate=(fraction)1/10, format=RGB, width=1280, height=720"
+#define RGB_PIXEL_DEPTH 3 //in bytes
 
 /* Filter signals and args */
 enum
@@ -205,7 +206,7 @@ gst_formula_one_parse_chain(GstPad *pad, GstObject *parent, GstBuffer *buf)
     GstMapInfo map;
     gst_buffer_map(buf, &map, GST_MAP_READ);
     PacketHeader *ph = (PacketHeader *)map.data;
-    g_print("UDP Packet Identifier - %d\n", ph->m_packetId);
+    // g_print("UDP Packet Identifier - %d\n", ph->m_packetId);
     if (ph->m_packetId == 6)
     {
       PacketCarTelemetryData *carTelemetry = (PacketCarTelemetryData *)map.data;
@@ -216,29 +217,37 @@ gst_formula_one_parse_chain(GstPad *pad, GstObject *parent, GstBuffer *buf)
       g_print("Gear - %i\n", playerCar.m_gear);
       g_print("Engine RPM - %u\n", playerCar.m_engineRPM);
 
-      size = 300 * 300 * 3;
       video_buffer = gst_buffer_new();
       gst_video_info_from_caps(&video_info, gst_caps_from_string(SRC_CAPS));
+      size = video_info.height * video_info.width * RGB_PIXEL_DEPTH;
       memory = gst_allocator_alloc(NULL, size, NULL);
       gst_buffer_insert_memory(video_buffer, -1, memory);
-      // set RGB pixels to black one at a time
+      // set RGB pixels
       if (gst_video_frame_map(&vframe, &video_info, video_buffer, GST_MAP_WRITE))
       {
         guint8 *pixels = GST_VIDEO_FRAME_PLANE_DATA(&vframe, 0);
-        guint stride = GST_VIDEO_FRAME_PLANE_STRIDE(&vframe, 0);
-        guint pixel_stride = GST_VIDEO_FRAME_COMP_PSTRIDE(&vframe, 0);
-        int h, w, height = 300, width = 300;
+        guint stride = GST_VIDEO_FRAME_PLANE_STRIDE(&vframe, 0);       // WIDTH * PIXEL_DEPTH
+        guint pixel_stride = GST_VIDEO_FRAME_COMP_PSTRIDE(&vframe, 0); // PIXEL_DEPTH (in bytes e.g. ARGB == 4)
+        int h, w;
+        int height = video_info.height;
+        int width = video_info.width;
         for (h = 0; h < height; ++h)
         {
           for (w = 0; w < width; ++w)
           {
             guint8 *pixel = pixels + h * stride + w * pixel_stride;
-            memset(pixel, 0, pixel_stride);
+            guint8 r = 126;
+            guint8 g = 0;
+            guint8 b = 0;
+            guint32 argb = (r << 16) | (g << 8) | b;
+            // guint32 argb = (a << 24) | (r << 16) | (g << 8) | b;
+            g_print("pixel %u\n", argb);
+            memset(pixel, argb, pixel_stride);
           }
         }
-        gst_video_frame_unmap(&vframe);
+        // gst_video_frame_unmap(&vframe);
       }
-      gst_buffer_unmap(buf, &map);
+      // gst_buffer_unmap(buf, &map);
       /* push out the buffer */
       return gst_pad_push(filter->srcpad, video_buffer);
     }
