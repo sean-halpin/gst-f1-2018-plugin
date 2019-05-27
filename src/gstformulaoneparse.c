@@ -231,14 +231,18 @@ gst_formula_one_parse_chain(GstPad *pad, GstObject *parent, GstBuffer *buf)
         int h, w;
         int height = video_info.height;
         int width = video_info.width;
+        guint8 r = 0;
+        guint8 g = 0;
+        guint8 b = 0;
         for (h = 0; h < height; ++h)
         {
+          //paint 3 coloured stripes
+          if(h<200){r=255;g=0;b=0;}
+          else if(h<400) {r=0;g=255;b=0;}
+          else if(h<800) {r=0;g=0;b=255;}
           for (w = 0; w < width; ++w)
           {
             guint8 *pixel = pixels + h * stride + w * pixel_stride;
-            guint8 r = 0;
-            guint8 g = 0;
-            guint8 b = 0;
             guint32 rgb = (r << 16) | (g << 8) | b;
             memcpy(pixel, &rgb, pixel_stride);
           }
