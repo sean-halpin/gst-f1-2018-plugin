@@ -23,7 +23,7 @@
 
 GST_DEBUG_CATEGORY_STATIC(gst_formula_one_parse_debug);
 #define GST_CAT_DEFAULT gst_formula_one_parse_debug
-#define SRC_CAPS "video/x-raw, framerate=(fraction)1/10, format=RGB, width=1280, height=720"
+#define SRC_CAPS "video/x-raw, framerate=1/10, format=RGB, width=1280, height=720"
 #define RGB_PIXEL_DEPTH 3 //in bytes
 
 /* Filter signals and args */
@@ -51,7 +51,7 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE("sink",
 static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE("src",
                                                                   GST_PAD_SRC,
                                                                   GST_PAD_ALWAYS,
-                                                                  GST_STATIC_CAPS(SRC_CAPS));
+                                                                  GST_STATIC_CAPS(SRC_CAPS)); //GST_VIDEO_CAPS_MAKE ("RGB")
 
 #define gst_formula_one_parse_parent_class parent_class
 G_DEFINE_TYPE(GstFormulaOneParse, gst_formula_one_parse, GST_TYPE_ELEMENT);
@@ -236,20 +236,18 @@ gst_formula_one_parse_chain(GstPad *pad, GstObject *parent, GstBuffer *buf)
           for (w = 0; w < width; ++w)
           {
             guint8 *pixel = pixels + h * stride + w * pixel_stride;
-            guint8 r = 126;
+            guint8 r = 0;
             guint8 g = 0;
             guint8 b = 0;
-            guint32 argb = (r << 16) | (g << 8) | b;
-            // guint32 argb = (a << 24) | (r << 16) | (g << 8) | b;
-            g_print("pixel %u\n", argb);
-            memset(pixel, argb, pixel_stride);
+            guint32 rgb = (r << 16) | (g << 8) | b;
+            memcpy(pixel, &rgb, pixel_stride);
           }
         }
-        // gst_video_frame_unmap(&vframe);
+        gst_video_frame_unmap(&vframe);
+        gst_buffer_unmap(buf, &map);
+        /* push out the buffer */
+        return gst_pad_push(filter->srcpad, video_buffer);
       }
-      // gst_buffer_unmap(buf, &map);
-      /* push out the buffer */
-      return gst_pad_push(filter->srcpad, video_buffer);
     }
   }
   return GST_FLOW_OK;
