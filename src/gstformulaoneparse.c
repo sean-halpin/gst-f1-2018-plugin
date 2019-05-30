@@ -18,11 +18,14 @@
 #include <stdio.h>
 #include <time.h>
 #include <gst/gst.h>
-
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 #include "gstformulaoneparse.h"
 
 GST_DEBUG_CATEGORY_STATIC(gst_formula_one_parse_debug);
 #define GST_CAT_DEFAULT gst_formula_one_parse_debug
+#define SRC_CAPS "video/x-raw, framerate=1/10, format=RGB, width=1280, height=720"
+#define RGB_PIXEL_DEPTH 3 //in bytes
 
 /* Filter signals and args */
 enum
@@ -49,7 +52,7 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE("sink",
 static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE("src",
                                                                   GST_PAD_SRC,
                                                                   GST_PAD_ALWAYS,
-                                                                  GST_STATIC_CAPS("ANY"));
+                                                                  GST_STATIC_CAPS(SRC_CAPS)); //GST_VIDEO_CAPS_MAKE ("RGB")
 
 #define gst_formula_one_parse_parent_class parent_class
 G_DEFINE_TYPE(GstFormulaOneParse, gst_formula_one_parse, GST_TYPE_ELEMENT);
@@ -190,30 +193,21 @@ gst_formula_one_parse_sink_event(GstPad *pad, GstObject *parent, GstEvent *event
 static GstFlowReturn
 gst_formula_one_parse_chain(GstPad *pad, GstObject *parent, GstBuffer *buf)
 {
-  time_t timer;
-  char buffer[26];
-  struct tm *tm_info;
-  time(&timer);
-  tm_info = localtime(&timer);
-  strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", tm_info);
+  GstVideoFrame vframe;
+  GstVideoInfo video_info;
+  GstBuffer *video_buffer;
+  GstMemory *memory;
+  gint size;
 
   GstFormulaOneParse *filter;
-
   filter = GST_FORMULAONEPARSE(parent);
 
   if (filter->silent == FALSE)
   {
-    // g_print("F1 Telemetry Recieved - %s\n", buffer);
     GstMapInfo map;
     gst_buffer_map(buf, &map, GST_MAP_READ);
     PacketHeader *ph = (PacketHeader *)map.data;
-    // g_print("Packet Format - %d\n", ph->m_packetFormat);
-    // g_print("Packet Version - %d\n", ph->m_packetVersion);
-    // g_print("Packet Id - %d\n", ph->m_packetId);
-    // g_print("Player Car Index - %d\n", ph->m_playerCarIndex);
-    // g_print("Session Time - %d\n", ph->m_sessionTime);
-    // g_print("Session UID - %d\n", ph->m_sessionUID);
-    // g_print("Frame ID - %d\n", ph->m_frameIdentifier);
+    // g_print("UDP Packet Identifier - %d\n", ph->m_packetId);
     if (ph->m_packetId == 6)
     {
       PacketCarTelemetryData *carTelemetry = (PacketCarTelemetryData *)map.data;
@@ -223,12 +217,102 @@ gst_formula_one_parse_chain(GstPad *pad, GstObject *parent, GstBuffer *buf)
       g_print("Speed - %u\n", playerCar.m_speed);
       g_print("Gear - %i\n", playerCar.m_gear);
       g_print("Engine RPM - %u\n", playerCar.m_engineRPM);
-    }
 
-    gst_buffer_unmap(buf, &map);
+      video_buffer = gst_buffer_new();
+      gst_video_info_from_caps(&video_info, gst_caps_from_string(SRC_CAPS));
+      size = video_info.height * video_info.width * RGB_PIXEL_DEPTH;
+      memory = gst_allocator_alloc(NULL, size, NULL);
+      gst_buffer_insert_memory(video_buffer, -1, memory);
+      // set RGB pixels
+      if (gst_video_frame_map(&vframe, &video_info, video_buffer, GST_MAP_WRITE))
+      {
+        guint8 *pixels = GST_VIDEO_FRAME_PLANE_DATA(&vframe, 0);
+        guint stride = GST_VIDEO_FRAME_PLANE_STRIDE(&vframe, 0);       // WIDTH * PIXEL_DEPTH
+        guint pixel_stride = GST_VIDEO_FRAME_COMP_PSTRIDE(&vframe, 0); // PIXEL_DEPTH (in bytes e.g. ARGB == 4)
+        int h, w;
+        int height = video_info.height;
+        int width = video_info.width;
+        // Manual Draw
+        guint8 r = 0;
+        guint8 g = 0;
+        guint8 b = 0;
+        for (h = 0; h < height; ++h)
+        {
+          //paint 3 coloured stripes
+          if (h < 200)
+          {
+            r = 255;
+            g = 0;
+            b = 0;
+          }
+          else if (h < 400)
+          {
+            r = 0;
+            g = 255;
+            b = 0;
+          }
+          else if (h < 800)
+          {
+            r = 0;
+            g = 0;
+            b = 255;
+          }
+          for (w = 0; w < width; ++w)
+          {
+            guint8 *pixel = pixels + h * stride + w * pixel_stride;
+            guint32 rgb = (r << 16) | (g << 8) | b;
+            memcpy(pixel, &rgb, pixel_stride);
+          }
+        }
+        // SDL Draw
+        Uint32 rmask, gmask, bmask, amask;
+        rmask = 0x000000ff;
+        gmask = 0x0000ff00;
+        bmask = 0x00ff0000;
+        amask = 0xff000000;
+        SDL_Surface *surf = SDL_CreateRGBSurface(0, width, height, 24, rmask, gmask, bmask, amask);
+        // All Black
+        for (h = 0; h < height; ++h)
+        {
+          for (w = 0; w < width; ++w)
+          {
+            guint8 *pixel = surf->pixels + h * stride + w * pixel_stride;
+            memset(pixel, 0, pixel_stride);
+          }
+        }
+        // Fill Red
+        SDL_FillRect(surf, NULL, SDL_MapRGB(surf->format, 35, 25, 15));
+        // Draw Text
+        if (TTF_Init() < 0)
+        {
+          // Handle error...
+        }
+        TTF_Font *font = TTF_OpenFont("/usr/share/fonts/truetype/tlwg/Purisa.ttf", 128);
+        if (font == NULL)
+        {
+          g_printerr("TTF_OpenFont: %s\n", TTF_GetError());
+        }
+        SDL_Color foregroundColor = {0, 0, 255, 128};
+        SDL_Color backgroundColor = {0, 255, 0, 128};
+        char char_arr[100];
+        sprintf(char_arr, "Speed: %d", playerCar.m_speed);
+        SDL_Surface *textSurface = TTF_RenderText_Solid(font, char_arr, foregroundColor);
+        // SDL_Surface *textSurface = TTF_RenderText_Shaded(font, "test", foregroundColor, backgroundColor);
+        SDL_Rect *textLocation = {0, 0, 0, 0};
+        SDL_BlitSurface(textSurface, NULL, surf, textLocation);
+        SDL_FreeSurface(textSurface);
+        TTF_CloseFont(font);
+        // Copy to Video Buffer
+        memcpy(pixels, surf->pixels, height * width * pixel_stride);
+        //
+        gst_video_frame_unmap(&vframe);
+        gst_buffer_unmap(buf, &map);
+        /* push out the buffer */
+        return gst_pad_push(filter->srcpad, video_buffer);
+      }
+    }
   }
-  /* just push out the incoming buffer without touching it */
-  return gst_pad_push(filter->srcpad, buf);
+  return GST_FLOW_OK;
 }
 
 /* entry point to initialize the plug-in

@@ -61,6 +61,39 @@ PKG_CHECK_MODULES(GST, [
   ])
 ])
 
+# PKG_CHECK_MODULES([SDL_DEPS], [sdl2], , AC_MSG_ERROR([SDL2 is required for this package]))
+# PKG_CHECK_MODULES([SDL_IMAGE_DEPS], [SDL2_image], , AC_MSG_ERROR([SDL2-image is required for this package]))
+# PKG_CHECK_MODULES([SDL_TTF_DEPS], [SDL2_ttf], , AC_MSG_ERROR([SDL2-ttf is required for this package]))
+# AC_CHECK_LIB(sdl2, SDL_Init)
+# AC_SEARCH_LIBS([sdl2])
+
+# SDL_CFLAGS := $(shell sdl2-config --cflags)
+# SDL_LDFLAGS := $(shell sdl2-config --static-libs)
+
+# SDL_TTF_FLAGS=" -lSDL2_ttf "
+# AC_SUBST(SDL_TTF_FLAGS)
+
+dnl Check for SDL
+SDL_VERSION=2.0.9
+AM_PATH_SDL2($SDL_VERSION,
+          :,
+          AC_MSG_ERROR([*** SDL version $SDL_VERSION not found!])
+)
+CFLAGS="$CFLAGS $SDL_CFLAGS"
+LIBS="$LIBS $SDL_LIBS"
+
+AC_CHECK_HEADER([SDL2/SDL_ttf.h],[],
+	AC_MSG_ERROR([SDL_ttf headers not found]))
+
+# check for libs
+# AC_CHECK_LIB(SDL_net, SDLNet_UDP_Open,
+# 	AC_SUBST(SDL_NET_LIBS, -lSDL_net),
+# 	AC_MSG_ERROR([SDL_net library not found]))
+	
+AC_CHECK_LIB(SDL2_ttf, TTF_OpenFont,
+	AC_SUBST(SDL_TTF_LIBS, -lSDL2_ttf),
+	AC_MSG_ERROR([SDL2_ttf library not found]))
+
 dnl check if compiler understands -Wall (if yes, add -Wall to GST_CFLAGS)
 AC_MSG_CHECKING([to see if compiler understands -Wall])
 save_CFLAGS="$CFLAGS"
