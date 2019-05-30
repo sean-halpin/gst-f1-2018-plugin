@@ -187,6 +187,27 @@ gst_formula_one_parse_sink_event(GstPad *pad, GstObject *parent, GstEvent *event
   return ret;
 }
 
+static gboolean sdl_draw_text(int fontsize, SDL_Color fontColor, char *text, SDL_Surface *destSurface, int x, int y)
+{
+  if (TTF_Init() < 0)
+  {
+    g_printerr("TTF_Init() Failed: %s\n", TTF_GetError());
+    return FALSE;
+  }
+  TTF_Font *font = TTF_OpenFont("/usr/share/fonts/truetype/freefont/FreeMono.ttf", fontsize);
+  if (font == NULL)
+  {
+    g_printerr("TTF_OpenFont: %s\n", TTF_GetError());
+    return FALSE;
+  }
+  SDL_Surface *textSurface = TTF_RenderText_Solid(font, text, fontColor);
+  SDL_Rect *srcRect = {0, 0, 0, 0};
+  SDL_Rect dstRect = { .x = x, .y =y};
+  SDL_BlitSurface(textSurface, NULL, destSurface, &dstRect);
+  TTF_CloseFont(font);
+  return TRUE;
+}
+
 /* chain function
  * this function does the actual processing
  */
@@ -232,78 +253,31 @@ gst_formula_one_parse_chain(GstPad *pad, GstObject *parent, GstBuffer *buf)
         int h, w;
         int height = video_info.height;
         int width = video_info.width;
-        // Manual Draw
-        guint8 r = 0;
-        guint8 g = 0;
-        guint8 b = 0;
-        for (h = 0; h < height; ++h)
-        {
-          //paint 3 coloured stripes
-          if (h < 200)
-          {
-            r = 255;
-            g = 0;
-            b = 0;
-          }
-          else if (h < 400)
-          {
-            r = 0;
-            g = 255;
-            b = 0;
-          }
-          else if (h < 800)
-          {
-            r = 0;
-            g = 0;
-            b = 255;
-          }
-          for (w = 0; w < width; ++w)
-          {
-            guint8 *pixel = pixels + h * stride + w * pixel_stride;
-            guint32 rgb = (r << 16) | (g << 8) | b;
-            memcpy(pixel, &rgb, pixel_stride);
-          }
-        }
         // SDL Draw
         Uint32 rmask, gmask, bmask, amask;
         rmask = 0x000000ff;
         gmask = 0x0000ff00;
         bmask = 0x00ff0000;
         amask = 0xff000000;
-        SDL_Surface *surf = SDL_CreateRGBSurface(0, width, height, 24, rmask, gmask, bmask, amask);
-        // All Black
-        for (h = 0; h < height; ++h)
-        {
-          for (w = 0; w < width; ++w)
-          {
-            guint8 *pixel = surf->pixels + h * stride + w * pixel_stride;
-            memset(pixel, 0, pixel_stride);
-          }
-        }
+        SDL_Surface *imageSurface = SDL_CreateRGBSurface(0, width, height, 24, rmask, gmask, bmask, amask);
         // Fill Red
-        SDL_FillRect(surf, NULL, SDL_MapRGB(surf->format, 35, 25, 15));
+        SDL_FillRect(imageSurface, NULL, SDL_MapRGB(imageSurface->format, 64, 0, 0));
         // Draw Text
-        if (TTF_Init() < 0)
-        {
-          // Handle error...
-        }
-        TTF_Font *font = TTF_OpenFont("/usr/share/fonts/truetype/tlwg/Purisa.ttf", 128);
-        if (font == NULL)
-        {
-          g_printerr("TTF_OpenFont: %s\n", TTF_GetError());
-        }
-        SDL_Color foregroundColor = {0, 0, 255, 128};
-        SDL_Color backgroundColor = {0, 255, 0, 128};
-        char char_arr[100];
-        sprintf(char_arr, "Speed: %d", playerCar.m_speed);
-        SDL_Surface *textSurface = TTF_RenderText_Solid(font, char_arr, foregroundColor);
-        // SDL_Surface *textSurface = TTF_RenderText_Shaded(font, "test", foregroundColor, backgroundColor);
-        SDL_Rect *textLocation = {0, 0, 0, 0};
-        SDL_BlitSurface(textSurface, NULL, surf, textLocation);
-        SDL_FreeSurface(textSurface);
-        TTF_CloseFont(font);
+        SDL_Color fontColor = {89, 144, 255, 255};
+        //Speed
+        char *speed[256];
+        sprintf(speed, "Speed: %u", playerCar.m_speed);
+        sdl_draw_text(24, fontColor, speed, imageSurface, 0, 0);
+        //Gear
+        char *gear[256];
+        sprintf(gear, "Gear: %i", playerCar.m_gear);
+        sdl_draw_text(24, fontColor, gear, imageSurface, 0, 100);
+        //RPM
+        char *rpm[256];
+        sprintf(rpm, "RPM: %u", playerCar.m_engineRPM);
+        sdl_draw_text(24, fontColor, rpm, imageSurface, 0, 200);
         // Copy to Video Buffer
-        memcpy(pixels, surf->pixels, height * width * pixel_stride);
+        memcpy(pixels, imageSurface->pixels, height * width * pixel_stride);
         //
         gst_video_frame_unmap(&vframe);
         gst_buffer_unmap(buf, &map);
