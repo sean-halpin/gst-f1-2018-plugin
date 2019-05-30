@@ -19,9 +19,9 @@ plugin_LTLIBRARIES = libformulaoneparse.la
 libformulaoneparse_la_SOURCES = gstformulaoneparse.c gstformulaoneparse.h
 
 # compiler and linker flags used to compile this plugin, set in configure.ac
-libformulaoneparse_la_CFLAGS = $(GST_CFLAGS)
-libformulaoneparse_la_LIBADD = $(GST_LIBS)
-libformulaoneparse_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS)
+libformulaoneparse_la_CFLAGS = $(GST_CFLAGS) $(SDL_CFLAGS) 
+libformulaoneparse_la_LIBADD = $(SDL_TTF_LIBS) $(GST_LIBS)
+libformulaoneparse_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS) $(SDL_LDFLAGS)
 libformulaoneparse_la_LIBTOOLFLAGS = --tag=disable-static
 
 # headers we need but don't want installed

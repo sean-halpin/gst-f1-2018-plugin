@@ -22,4 +22,4 @@ stamp-h1
 src/.libs/
 src/libformulaoneparse.la
 src/libformulaoneparse_la-gstformulaoneparse.lo
-
+config.h.in~

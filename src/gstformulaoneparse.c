@@ -18,7 +18,8 @@
 #include <stdio.h>
 #include <time.h>
 #include <gst/gst.h>
-
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 #include "gstformulaoneparse.h"
 
 GST_DEBUG_CATEGORY_STATIC(gst_formula_one_parse_debug);
@@ -231,15 +232,31 @@ gst_formula_one_parse_chain(GstPad *pad, GstObject *parent, GstBuffer *buf)
         int h, w;
         int height = video_info.height;
         int width = video_info.width;
+        // Manual Draw
         guint8 r = 0;
         guint8 g = 0;
         guint8 b = 0;
         for (h = 0; h < height; ++h)
         {
           //paint 3 coloured stripes
-          if(h<200){r=255;g=0;b=0;}
-          else if(h<400) {r=0;g=255;b=0;}
-          else if(h<800) {r=0;g=0;b=255;}
+          if (h < 200)
+          {
+            r = 255;
+            g = 0;
+            b = 0;
+          }
+          else if (h < 400)
+          {
+            r = 0;
+            g = 255;
+            b = 0;
+          }
+          else if (h < 800)
+          {
+            r = 0;
+            g = 0;
+            b = 255;
+          }
           for (w = 0; w < width; ++w)
           {
             guint8 *pixel = pixels + h * stride + w * pixel_stride;
@@ -247,6 +264,47 @@ gst_formula_one_parse_chain(GstPad *pad, GstObject *parent, GstBuffer *buf)
             memcpy(pixel, &rgb, pixel_stride);
           }
         }
+        // SDL Draw
+        Uint32 rmask, gmask, bmask, amask;
+        rmask = 0x000000ff;
+        gmask = 0x0000ff00;
+        bmask = 0x00ff0000;
+        amask = 0xff000000;
+        SDL_Surface *surf = SDL_CreateRGBSurface(0, width, height, 24, rmask, gmask, bmask, amask);
+        // All Black
+        for (h = 0; h < height; ++h)
+        {
+          for (w = 0; w < width; ++w)
+          {
+            guint8 *pixel = surf->pixels + h * stride + w * pixel_stride;
+            memset(pixel, 0, pixel_stride);
+          }
+        }
+        // Fill Red
+        SDL_FillRect(surf, NULL, SDL_MapRGB(surf->format, 35, 25, 15));
+        // Draw Text
+        if (TTF_Init() < 0)
+        {
+          // Handle error...
+        }
+        TTF_Font *font = TTF_OpenFont("/usr/share/fonts/truetype/tlwg/Purisa.ttf", 128);
+        if (font == NULL)
+        {
+          g_printerr("TTF_OpenFont: %s\n", TTF_GetError());
+        }
+        SDL_Color foregroundColor = {0, 0, 255, 128};
+        SDL_Color backgroundColor = {0, 255, 0, 128};
+        char char_arr[100];
+        sprintf(char_arr, "Speed: %d", playerCar.m_speed);
+        SDL_Surface *textSurface = TTF_RenderText_Solid(font, char_arr, foregroundColor);
+        // SDL_Surface *textSurface = TTF_RenderText_Shaded(font, "test", foregroundColor, backgroundColor);
+        SDL_Rect *textLocation = {0, 0, 0, 0};
+        SDL_BlitSurface(textSurface, NULL, surf, textLocation);
+        SDL_FreeSurface(textSurface);
+        TTF_CloseFont(font);
+        // Copy to Video Buffer
+        memcpy(pixels, surf->pixels, height * width * pixel_stride);
+        //
         gst_video_frame_unmap(&vframe);
         gst_buffer_unmap(buf, &map);
         /* push out the buffer */
