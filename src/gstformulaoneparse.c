@@ -202,9 +202,33 @@ static gboolean sdl_draw_text(int fontsize, SDL_Color fontColor, char *text, SDL
   }
   SDL_Surface *textSurface = TTF_RenderText_Solid(font, text, fontColor);
   SDL_Rect *srcRect = {0, 0, 0, 0};
-  SDL_Rect dstRect = { .x = x, .y =y};
+  SDL_Rect dstRect = {.x = x, .y = y};
   SDL_BlitSurface(textSurface, NULL, destSurface, &dstRect);
   TTF_CloseFont(font);
+  return TRUE;
+}
+
+static gboolean sdl_draw_main_telemetry(SDL_Surface *imageSurface, CarTelemetryData playerCar)
+{
+  SDL_FillRect(imageSurface, NULL, SDL_MapRGB(imageSurface->format, 0, 0, 0));
+  SDL_Rect mainTelemetryRectInner = {.x = 15, .y = 15, .w = 190, .h = 190};
+  SDL_Rect mainTelemetryRectOuter = {.x = 10, .y = 10, .w = 200, .h = 200};
+  SDL_FillRect(imageSurface, &mainTelemetryRectOuter, SDL_MapRGB(imageSurface->format, 255, 255, 255));
+  SDL_FillRect(imageSurface, &mainTelemetryRectInner, SDL_MapRGB(imageSurface->format, 96, 56, 96));
+  // Draw Text
+  SDL_Color fontColor = {0, 196, 255, 255};
+  // Speed
+  char *speed[256];
+  sprintf(speed, "Speed: %u", playerCar.m_speed);
+  sdl_draw_text(24, fontColor, speed, imageSurface, 20, 20);
+  // Gear
+  char *gear[256];
+  sprintf(gear, "Gear: %i", playerCar.m_gear);
+  sdl_draw_text(24, fontColor, gear, imageSurface, 20, 90);
+  // RPM
+  char *rpm[256];
+  sprintf(rpm, "RPM: %u", playerCar.m_engineRPM);
+  sdl_draw_text(24, fontColor, rpm, imageSurface, 20, 160);
   return TRUE;
 }
 
@@ -260,25 +284,10 @@ gst_formula_one_parse_chain(GstPad *pad, GstObject *parent, GstBuffer *buf)
         bmask = 0x00ff0000;
         amask = 0xff000000;
         SDL_Surface *imageSurface = SDL_CreateRGBSurface(0, width, height, 24, rmask, gmask, bmask, amask);
-        // Fill Red
-        SDL_FillRect(imageSurface, NULL, SDL_MapRGB(imageSurface->format, 64, 0, 0));
-        // Draw Text
-        SDL_Color fontColor = {89, 144, 255, 255};
-        //Speed
-        char *speed[256];
-        sprintf(speed, "Speed: %u", playerCar.m_speed);
-        sdl_draw_text(24, fontColor, speed, imageSurface, 0, 0);
-        //Gear
-        char *gear[256];
-        sprintf(gear, "Gear: %i", playerCar.m_gear);
-        sdl_draw_text(24, fontColor, gear, imageSurface, 0, 100);
-        //RPM
-        char *rpm[256];
-        sprintf(rpm, "RPM: %u", playerCar.m_engineRPM);
-        sdl_draw_text(24, fontColor, rpm, imageSurface, 0, 200);
+        sdl_draw_main_telemetry(imageSurface, playerCar);
         // Copy to Video Buffer
         memcpy(pixels, imageSurface->pixels, height * width * pixel_stride);
-        //
+        // Clean up
         gst_video_frame_unmap(&vframe);
         gst_buffer_unmap(buf, &map);
         /* push out the buffer */
